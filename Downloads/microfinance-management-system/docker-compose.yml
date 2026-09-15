@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SQL_ADMIN_USER:-postgres}
+      POSTGRES_PASSWORD: ${SQL_ADMIN_PASSWORD:-postgres}
+      POSTGRES_DB: ${SQL_DB_NAME:-imara_mfi}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SQL_ADMIN_USER:-postgres} -d ${SQL_DB_NAME:-imara_mfi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Overrides .env so the app talks to the "db" service on the compose
+      # network instead of localhost.
+      SQL_HOST: db
+      SQL_DB_NAME: ${SQL_DB_NAME:-imara_mfi}
+      SQL_ADMIN_USER: ${SQL_ADMIN_USER:-postgres}
+      SQL_ADMIN_PASSWORD: ${SQL_ADMIN_PASSWORD:-postgres}
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:

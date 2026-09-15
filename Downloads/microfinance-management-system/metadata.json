@@ -1,0 +1,6 @@
+{
+  "name": "SAAS MICROFINANCE",
+  "description": "IMARA Finance - Smarter Microfinance. Stronger Communities. SaaS microfinance management platform with hierarchical RBAC, mobile-first field officer operations, and core banking.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
