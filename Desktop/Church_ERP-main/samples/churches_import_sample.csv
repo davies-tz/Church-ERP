@@ -1,0 +1,10 @@
+level_key,name,code,parent_code,region,district
+archdiocese,Archdiocese of Arusha,ARU,,Arusha,Arusha
+diocese,Diocese of Moshi,MOS,ARU,Kilimanjaro,Moshi
+diocese,Diocese of Same,SAM,ARU,Kilimanjaro,Same
+deanery,Moshi Central Deanery,MOS-DEA1,MOS,Kilimanjaro,Moshi
+deanery,Moshi West Deanery,MOS-DEA2,MOS,Kilimanjaro,Moshi
+parish,St. Joseph Parish,MOS-P1,MOS-DEA1,Kilimanjaro,Moshi
+parish,Christ the King Parish,MOS-P2,MOS-DEA1,Kilimanjaro,Moshi
+parish,Holy Family Parish,MOS-P3,MOS-DEA2,Kilimanjaro,Moshi
+outstation,Kibosho Outstation,MOS-O1,MOS-P1,Kilimanjaro,Moshi
