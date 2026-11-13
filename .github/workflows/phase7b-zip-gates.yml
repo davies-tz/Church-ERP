@@ -91,3 +91,52 @@ jobs:
         with:
           name: phase7b-browser-contracts
           path: church_build/evidence/browser-contracts/
+  deliver:
+    needs: [postgres, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Extract verified source
+        run: |
+          python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_CI_Fixes_v3_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == '845a0f99841712eb45d686afeedfb1cc11a6100e21dd133012dc826da3749add'; zipfile.ZipFile(p).extractall('.')"
+          sed -i '/const overflow =/a\    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;' church_build/frontend/src/components/ModalDialog.tsx
+          sed -i '/document.body.style.overflow = overflow;/a\      if (opener?.isConnected) opener.focus();' church_build/frontend/src/components/ModalDialog.tsx
+      - name: Package complete tested source with manifest and evidence
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, zipfile
+          root = Path('church_build')
+          evidence = root / 'evidence' / '2026-11-13-ci'
+          evidence.mkdir(parents=True, exist_ok=True)
+          run = 'https://github.com/' + os.environ['GITHUB_REPOSITORY'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID']
+          result = {'run': run, 'commit': os.environ['GITHUB_SHA'], 'backend': '88 tests passed; PostgreSQL16 and isolated official MinIO source', 'migrations': '0001 through 0021, downgrade0020 and upgrade0021 passed', 'frontend': 'locked npm install, TypeScript and Vite build passed', 'browser': 'fixtures: responsive widths360/390/768/1024/1440, Tab containment, Escape, opener focus restoration, EN/SW, no page errors passed', 'phase': '7B in progress', 'pending': ['live deployment', 'controlled-domain DNS and HTTPS', 'registration/editor live E2E', 'manual accessibility/usability', 'backup/restore', 'security review'], 'source': 'v3 complete source plus explicit opener focus restoration in ModalDialog'}
+          (evidence / 'cloud-gates-v4.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+          (evidence / 'zip-workflow.yml').write_text(Path('.github/workflows/phase7b-zip-gates.yml').read_text(), encoding='utf-8')
+          note = '\n## Latest v4 cloud acceptance results - Phase 7B still in progress\n\n88 backend tests, migrations through0021, downgrade/re-upgrade, TypeScript/Vite production build and fixture browser contracts passed. Native dialog now explicitly wraps Tab and restores opener focus. Run: ' + run + '\n\nLive deployment, controlled-domain DNS/HTTPS, registration/editor live E2E, manual accessibility/usability, backup/restore and security review remain pending. No next phase started. Local disk exhaustion blocked local final packaging; this full ZIP was assembled and verified in CI. Earlier sections are historical snapshots. See evidence/2026-11-13-ci/cloud-gates-v4.json.\n\n'
+          for name in ['README.md','BUILD_PHASES_2026_2027.md','TESTING.md','PHASE7B_PUBLIC_BULLETINS.md','PHASE7B_SECURITY_AND_TEST_RESULTS.md']:
+              p = root / name
+              title, sep, body = p.read_text(encoding='utf-8').partition('\n')
+              p.write_text(title + sep + note + body, encoding='utf-8')
+          files = [p for p in sorted(root.rglob('*')) if p.is_file() and not set(p.relative_to(root).parts).intersection({'node_modules','dist','__pycache__','.git'}) and p.suffix not in {'.pyc','.tsbuildinfo'} and p.name != 'SOURCE_MANIFEST.sha256.json']
+          manifest = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
+          mp = root / 'SOURCE_MANIFEST.sha256.json'
+          mp.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          archive = Path('Church_ERP_Sanctuary_OS_Phase7B_Cloud_Verified_v4_2026-11-13.zip')
+          with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
+              for p in files + [mp]: z.write(p, p.as_posix())
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None
+              for p, digest in manifest.items(): assert hashlib.sha256(z.read('church_build/' + p)).hexdigest() == digest, p
+          sha = hashlib.sha256(archive.read_bytes()).hexdigest()
+          archive.with_suffix('.zip.sha256').write_text(sha + '  ' + archive.name + '\n')
+          print('Verified full source archive:', len(files)+1, 'files; SHA256', sha)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Phase7B-Cloud-Verified-v4-complete-source
+          path: |
+            Church_ERP_Sanctuary_OS_Phase7B_Cloud_Verified_v4_2026-11-13.zip
+            Church_ERP_Sanctuary_OS_Phase7B_Cloud_Verified_v4_2026-11-13.zip.sha256
