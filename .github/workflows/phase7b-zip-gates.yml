@@ -6,10 +6,7 @@ jobs:
     services:
       postgres:
         image: postgres:16
-        env:
-          POSTGRES_DB: church_erp
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+        env: {POSTGRES_DB: church_erp, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres}
         ports: ["5432:5432"]
         options: --health-cmd "pg_isready -U postgres -d church_erp" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
@@ -23,11 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with: {python-version: '3.12'}
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.24', cache: false}
       - name: Extract verified source
-        run: |
-          python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
+        run: python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
       - name: Dependencies and offline checks
         working-directory: church_build
         run: |
@@ -38,17 +35,19 @@ jobs:
           python scripts/test_church_site_logic.py
           python scripts/check_sermon_logic.py
           python scripts/check_design.py
-      - name: Start isolated object storage
+      - name: Build official MinIO source for isolated storage tests
         run: |
-          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio12345 quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z
+          mkdir -p /tmp/sanctuary-ci-storage
+          MINIO_ROOT_USER=minio MINIO_ROOT_PASSWORD=minio12345 nohup "$(go env GOPATH)/bin/minio" server /tmp/sanctuary-ci-storage --address 127.0.0.1:9000 > /tmp/minio.log 2>&1 &
           for n in $(seq 1 45); do
             curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null && exit 0
             sleep 2
           done
+          cat /tmp/minio.log
           exit 1
       - name: Create non-superuser RLS application role
-        env:
-          PGPASSWORD: postgres
+        env: {PGPASSWORD: postgres}
         run: psql -h 127.0.0.1 -U postgres -d church_erp -v ON_ERROR_STOP=1 -f church_build/db/init.sql
       - name: Migrate and run full backend suite
         working-directory: church_build/backend
@@ -65,14 +64,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with: {python-version: '3.12'}
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+        with: {node-version: '22'}
       - name: Extract verified source
-        run: |
-          python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
+        run: python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
       - name: Install locked dependencies and production build
         working-directory: church_build/frontend
         run: |
