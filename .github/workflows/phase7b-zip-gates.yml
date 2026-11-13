@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-go@v5
         with: {go-version: '1.24', cache: false}
       - name: Extract verified source
-        run: python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
+        run: python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_CI_Fixes_v3_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == '845a0f99841712eb45d686afeedfb1cc11a6100e21dd133012dc826da3749add'; zipfile.ZipFile(p).extractall('.')"
       - name: Dependencies and offline checks
         working-directory: church_build
         run: |
@@ -68,13 +68,11 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - name: Extract verified source
-        run: python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
+        run: python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_CI_Fixes_v3_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == '845a0f99841712eb45d686afeedfb1cc11a6100e21dd133012dc826da3749add'; zipfile.ZipFile(p).extractall('.')"
       - name: Install locked dependencies and production build
         working-directory: church_build/frontend
         run: |
           npm ci --no-audit --no-fund
-          sed -i '/const label=(x:{label_en:string;label_sw:string})/d' src/pages/DashboardPage.tsx
-          python -c "from pathlib import Path; p=Path('src/pages/PublicHome.tsx'); s=p.read_text(); p.write_text(s.replace('<span>↗</span>','<span aria-hidden=\"true\">↗</span>'))"
           npm run build
       - name: Browser contracts with fixtures, not live E2E
         working-directory: church_build
