@@ -74,6 +74,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           sed -i '/const label=(x:{label_en:string;label_sw:string})/d' src/pages/DashboardPage.tsx
+          python -c "from pathlib import Path; p=Path('src/pages/PublicHome.tsx'); s=p.read_text(); p.write_text(s.replace('<span>↗</span>','<span aria-hidden=\"true\">↗</span>'))"
           npm run build
       - name: Browser contracts with fixtures, not live E2E
         working-directory: church_build
