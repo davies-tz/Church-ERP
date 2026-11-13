@@ -1,0 +1,91 @@
+name: Phase 7B ZIP acceptance gates
+on: [push, pull_request]
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: church_erp
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres -d church_erp" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://church_app:church_app_pw@127.0.0.1:5432/church_erp
+      MINIO_ENDPOINT: 127.0.0.1:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio12345
+      MINIO_SECURE: "false"
+      ENABLE_DEMO_SITE_PREVIEWS: "false"
+      JWT_SECRET: ci-only-please-do-not-reuse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Extract verified source
+        run: |
+          python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
+      - name: Dependencies and offline checks
+        working-directory: church_build
+        run: |
+          python -m pip install -r backend/requirements.txt
+          python scripts/test_phase7b_privacy_regression.py
+          python scripts/test_release_checks.py
+          python scripts/test_public_bulletins.py
+          python scripts/test_church_site_logic.py
+          python scripts/check_sermon_logic.py
+          python scripts/check_design.py
+      - name: Start isolated object storage
+        run: |
+          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio12345 minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          for n in $(seq 1 45); do
+            curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Create non-superuser RLS application role
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d church_erp -v ON_ERROR_STOP=1 -f church_build/db/init.sql
+      - name: Migrate and run full backend suite
+        working-directory: church_build/backend
+        run: |
+          alembic upgrade head
+          python -m pytest -v
+      - name: Isolated migration rollback and re-upgrade
+        working-directory: church_build/backend
+        run: |
+          alembic downgrade 0020_public_bulletins
+          alembic upgrade head
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Extract verified source
+        run: |
+          python -c "import hashlib,zipfile; p='Church_ERP_Sanctuary_OS_Phase7B_Hosting_Readiness_v2_2026-11-13.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'b3a23995829ae3736b8ffdcc494d6318e5e478f6fb25ef001c89c558afda5dce'; zipfile.ZipFile(p).extractall('.')"
+      - name: Install locked dependencies and production build
+        working-directory: church_build/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Browser contracts with fixtures, not live E2E
+        working-directory: church_build
+        run: |
+          python -m pip install -r scripts/requirements-browser.txt
+          python -m playwright install --with-deps chromium
+          python scripts/test_phase7b_browser.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase7b-browser-contracts
+          path: church_build/evidence/browser-contracts/
