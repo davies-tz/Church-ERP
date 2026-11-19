@@ -1,8 +1,8 @@
 # Builds the verified complete source archive without using older repository folders.
 FROM python:3.12-slim AS source
 WORKDIR /source
-COPY Church_ERP_Sanctuary_OS_Phase7B_Cloud_Verified_v4_2026-11-13.zip /tmp/source.zip
-RUN python -c "import hashlib,zipfile; p='/tmp/source.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == 'ea2a19e25e2fc03fa1d2dab9e5885f0d540ba30a2de2fabff60f9220175d572f'; zipfile.ZipFile(p).extractall('/source')"
+COPY Church_ERP_Sanctuary_OS_Phase7B_Oneallied_Bootstrap_v6_2026-11-20.zip /tmp/source.zip
+RUN python -c "import hashlib,zipfile; p='/tmp/source.zip'; assert hashlib.sha256(open(p,'rb').read()).hexdigest() == '7319ebd505f03ed142f986f9a3455d65ce413233573e97dbf8554f3b7378f4d8'; zipfile.ZipFile(p).extractall('/source')"
 
 FROM node:22-slim AS frontend
 WORKDIR /build
