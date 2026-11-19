@@ -2,7 +2,7 @@ name: Phase 7B ZIP acceptance gates
 on: [push, pull_request]
 jobs:
   postgres:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -61,7 +61,7 @@ jobs:
           alembic downgrade 0020_public_bulletins
           alembic upgrade head
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
